@@ -1,0 +1,20 @@
+#%%
+import os
+import matplotlib.pyplot as plt
+from utils import *
+from sklearn.datasets import load_iris 
+import pandas as pd
+
+def load_data(dataPath, input=True):
+    if input:
+        data = pd.read_csv(dataPath,header=None)
+    else:
+        data = pd.read_csv(dataPath)    
+    data = data.values
+    return data
+
+
+X1 = load_data(dataPath='/Users/tth/Thanh/MasterThesis/data/AD_MCI/GM.csv')
+X1
+# ,dataPathy='/Users/tth/Thanh/MasterThesis/data/AD_MCI/AD_MCI_label.csv'
+# %%
