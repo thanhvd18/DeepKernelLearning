@@ -1,0 +1,2 @@
+python train.py --epochs 100 --select_loss_type FSM  --max_patient 5 --saveDir ./figures --dataPathList './data/AD_CN/GM.csv,./data/AD_CN/PET.csv,./data/AD_CN/CSF.csv' \
+       --labelPath './data/AD_CN/AD_CN_label.csv' 

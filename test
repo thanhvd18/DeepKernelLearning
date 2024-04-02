@@ -4,17 +4,25 @@ import matplotlib.pyplot as plt
 from utils import *
 from sklearn.datasets import load_iris 
 import pandas as pd
+# sklearn label encoding
+from sklearn.preprocessing import LabelEncoder
 
 def load_data(dataPath, input=True):
     if input:
         data = pd.read_csv(dataPath,header=None)
+        data = data.values
+        return data
+
     else:
         data = pd.read_csv(dataPath)    
-    data = data.values
-    return data
+        data = data['encoded']
+        le = LabelEncoder()
+        y = le.fit_transform(data)
+        return y
 
 
 X1 = load_data(dataPath='/Users/tth/Thanh/MasterThesis/data/AD_MCI/GM.csv')
-X1
-# ,dataPathy='/Users/tth/Thanh/MasterThesis/data/AD_MCI/AD_MCI_label.csv'
+# X1.shape
+y = load_data(dataPath='/Users/tth/Thanh/MasterThesis/data/AD_MCI/AD_MCI_label.csv')
+y
 # %%

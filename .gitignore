@@ -1,1 +1,4 @@
 *.csv
+figures/*.png
+figures/*
+test
