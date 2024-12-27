@@ -1,0 +1,8 @@
+umap-learn
+scikit-learn
+torch
+pytest
+pandas
+numpy
+seaborn
+matplotlib
