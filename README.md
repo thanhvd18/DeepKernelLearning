@@ -1,7 +1,7 @@
 # Deep Kernel Learning (DKL)
 
-![DKL](images/deeplearning%20model.png)
-![Alt text](images/image.png)
+![DKL](assets/images/deeplearning model.png)
+![Alt text](assets/images/image.png)
 Combining multikernels through deep learning
 
 ## Features
