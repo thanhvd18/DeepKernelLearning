@@ -5,7 +5,6 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 sys.path.append(os.path.join(os.getcwd(), '..', '..', 'DKL'))
 from DKL.model.model import DeepCNN
 from DKL.data import DataLoader, CrossValidator, DataLoaderAdvanced
-from DKL.train import train
 from DKL.loss import my_loss
 import torch
 from DKL import config

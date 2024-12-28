@@ -49,8 +49,8 @@ class DeepCNN(nn.Module):
               if i<self.n_layer-1:
                 x = self.relu(x)
 
-
-        lastConv =  nn.Conv2d(n_kernel_list[self.n_layer-1],1, kernel_size=1)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        lastConv =  nn.Conv2d(n_kernel_list[self.n_layer-1],1, kernel_size=1).to(device)
         x = lastConv(x)
         x = self.sigmoid(x)
         return x

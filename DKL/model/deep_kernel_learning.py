@@ -32,18 +32,18 @@ class DeepKernelLearning(DeepCNN):
         self.combine_K = torch.tensor(combine_K, dtype=torch.float32).to(device)
         KY_train = torch.tensor(KY_train, dtype=torch.float32).to(device)
     # Handle label mask matrix
-        combine_y_mask = np.full((train_size + test_size, train_size + test_size), None, dtype=object)
-        combine_y_mask[:train_size, :train_size] = KY_train
+    #     combine_y_mask = np.full((train_size + test_size, train_size + test_size), None, dtype=object)
+    #     combine_y_mask[:train_size, :train_size] = KY_train
 
-        self.model = DeepCNN(n_kernel=3,kernel_size = 1, n_layer=8).to(device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
-        epochs = 10
+        self.model = DeepCNN(n_kernel=3, kernel_size = 1, n_layer=3).to(device)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.00001)
+        epochs = 100
         for epoch in range(epochs):
             print("Epoch: ", epoch)
             self.model.train()
             outputs = self.model(self.combine_K)
             outputs = outputs[:,:train_size, :train_size]
-            loss = my_loss(KY_train,outputs,"MSE")
+            loss = my_loss(KY_train,outputs,"FSM")
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -55,6 +55,6 @@ class DeepKernelLearning(DeepCNN):
         outputs = self.model(self.combine_K)
         outputs = torch.squeeze(outputs)
         if Xs.shape[2] != self.train_size: # training
-            return  outputs[self.train_size:, :self.train_size].detach().numpy()
-        else: #test
-            return outputs[:self.train_size, :self.train_size].detach().numpy()
+            return  outputs[self.train_size:, :self.train_size].cpu().detach().numpy()
+        else: #testing
+            return outputs[:self.train_size, :self.train_size].cpu().detach().numpy()
