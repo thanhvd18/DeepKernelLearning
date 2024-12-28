@@ -5,13 +5,13 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 sys.path.append(os.path.join(os.getcwd(), '..', '..', 'DKL'))
 from DKL.model.model import DeepCNN
 from DKL.data import DataLoader, CrossValidator, DataLoaderAdvanced
-from DKL.train import train
 from DKL.loss import my_loss
 import torch
 from DKL import config
 from DKL.kernels import KernelConstructor
 import DKL
 import pandas as pd
+import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
     data_dir = os.path.join(os.getcwd(), "..", "..", "data/AD_CN")
