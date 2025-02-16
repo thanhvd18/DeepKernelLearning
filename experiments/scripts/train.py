@@ -1,5 +1,6 @@
 import os
 import sys
+import argparse
 
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 sys.path.append(os.path.join(os.getcwd(), '..', '..', 'DKL'))
@@ -13,103 +14,124 @@ from DKL.kernels import KernelConstructor
 import DKL
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 if __name__ == '__main__':
-
+    """
+    Ví dụ chạy:
+        python main.py --modality PET
+        python main.py --modality GM
+        python main.py --modality MRI
+    """
+    
+    # Khai báo argparse
+    parser = argparse.ArgumentParser(description="Deep Kernel Learning Experiment")
+    parser.add_argument(
+        "--modality", 
+        type=str, 
+        default="PET", 
+        choices=["PET", "GM", "CSF", "concat"],
+        help="Modality bạn muốn chạy thí nghiệm: PET, GM, CSF, hoặc concat."
+    )
+    args = parser.parse_args()
+    
+    # Lấy modality được chọn
+    chosen_modality = args.modality
+    
     data_dir = os.path.join(os.getcwd(), "..", "..", "data/AD_CN")
-    #desrcibe data structure of data saved in csv files
+    
+    # Mặc định vẫn khai báo tất cả file CSV
     data_config = {
-        "MRI": os.path.join(data_dir, "MRI.csv"),
+        "GM": os.path.join(data_dir, "GM.csv"),
         "PET": os.path.join(data_dir, "PET.csv"),
         "CSF": os.path.join(data_dir, "CSF.csv"),
-        # "SNP": os.path.join(data_dir, "SNP.csv"),
+        "concat": os.path.join(data_dir, "concat.csv"),
         "label": os.path.join(data_dir, "AD_CN_label.csv")
     }
-    data_loader = DataLoader(data_config)
-    # print(data_loader.get_modalities())
-    # print(data_loader.get_data("MRI"))
-
-    # representation_type = "kernel" #representation_types = ["feature", "kernel"]
-    # kernel_level = "early" # kernel_levels = ["early", "middle", "late"]
-    # kernel_constructor = KernelConstructor(kernel_level, method="polynomial")
-
-    # kernel_level = "middle" # kernel_levels = ["early", "middle", "late"]
-    # kernel_constructor = KernelConstructor(kernel_level, method="rbf")
-
-    kernel_level = "late" # kernel_levels = ["early", "middle", "late"]
-    kernel_constructor = KernelConstructor(kernel_level, method=None)
-
-    # K_X = kernel_constructor.fit_transform(data_loader.get_data("MRI"), data_loader.get_data("label"))
-    # print(K_X.shape)
-
-    # #visualize kernel construction for each modality
-    # K_X = []
-    # modalities = []
-    # for key in data_loader.get_modalities():
-    #     K_X1, _ = kernel_constructor.fit_transform(data_loader.get_data(key), data_loader.get_data("label"))
-    #     K_X.append(K_X1)
-    #     modalities.append(key)
-    # plt.figure(figsize=(8, 4))
-    # plt.subplot(1, 3, 1)
-    # plt.title(modalities[0])
-    # plt.imshow(K_X[0])
-    # plt.subplot(1, 3, 2)
-    # plt.title(modalities[1])
-    # plt.imshow(K_X[1])
-    # plt.subplot(1, 3, 3)
-    # plt.title(modalities[2])
-    # plt.imshow(K_X[2])
-    # plt.show()
-
     
-    cv = CrossValidator(n_splits=5,n_repeats=1, stratified=False, random_state=1)
+    # Để chỉ load đúng modality mà bạn muốn (và label), 
+    # bạn có thể filter lại data_config, bỏ những modality không dùng.
+    # Nếu muốn chạy ghép nhiều modality, bạn có thể tự điều chỉnh logic này.
+    keep_keys = [chosen_modality, "label"]
+    data_config = {k: v for k, v in data_config.items() if k in keep_keys}
+    
+    data_loader = DataLoader(data_config)
 
-    splits = DKL.utils.train_test_kernel_cv_split(data_loader,cv,kernel_constructor)
-    kernel_split, feature_split = splits[0]
-    [Xs_kernel_train, Y_K_train, Xs_kernel_train_test,Xs_kernel_test_test, Y_K_test] = kernel_split
-    [ Xs_train, Y_train, Xs_test, Y_test] = feature_split
+    # Bạn vẫn giữ nguyên kernel_level, method,... như ban đầu
+    kernel_level = "enhancedMiddle" # kernel_levels = ["early", "middle", "late", "enhancedMiddle"]
+    kernel_constructor = KernelConstructor(kernel_level, method="linear")
 
-    Xs_kernel_train = DKL.utils.stack_kernel_matrix_from_dict(Xs_kernel_train)
-    Xs_kernel_train_test = DKL.utils.stack_kernel_matrix_from_dict(Xs_kernel_train_test)
-    Xs_kernel_test_test = DKL.utils.stack_kernel_matrix_from_dict(Xs_kernel_test_test)
+    # Tạo CrossValidator
+    cv = CrossValidator(n_splits=5, n_repeats=1, stratified=True, random_state=1)
+
+    # Tạo các splits
+    splits = DKL.utils.train_test_kernel_cv_split(data_loader, cv, kernel_constructor)
+
+    confusion_matrices = []
+    classification_reports = []
+    accuracies = []
+
+    # Chạy vòng lặp huấn luyện và đánh giá
+    for fold_idx, (kernel_split, feature_split) in enumerate(splits):
+    
+        [Xs_kernel_train, Y_K_train, Xs_kernel_train_test, Xs_kernel_test_test, Y_K_test] = kernel_split
+        [Xs_train, Y_train, Xs_test, Y_test] = feature_split
+
+        # Vì chỉ load một modality, Xs_kernel_train / Xs_kernel_train_test / Xs_kernel_test_test
+        # sẽ là dict có đúng 1 key = chosen_modality. Ta có thể trích xuất ra như sau:
+        X_train_kernel = Xs_kernel_train[chosen_modality]         # kernel train
+        X_train_test_kernel = Xs_kernel_train_test[chosen_modality] # kernel train-test (cross term)
+        X_test_test_kernel = Xs_kernel_test_test[chosen_modality]   # kernel test-test
+
+        print("====="*5)
+        print("X_train_kernel shape: ", X_train_kernel.shape)
+        print("X_train_test_kernel shape:", X_train_test_kernel.shape)
+        print("X_test_test_kernel shape:", X_test_test_kernel.shape)
+        print("====="*5)
+
+        # Ví dụ dùng KernelClassifier đơn giản
+        clf = DKL.kernels.KernelClassifier()
+        clf.fit(X_train_kernel, Y_K_train)
+        
+        # Dự đoán trên phần kernel tương ứng
+        y_pred = clf.predict(X_train_test_kernel)
+
+        # Tính confusion matrix, classification report
+        cf = confusion_matrix(Y_test, y_pred)
+        report = pd.DataFrame(classification_report(Y_test, y_pred, output_dict=True))
+
+        confusion_matrices.append(cf)
+        classification_reports.append(report)
+
+        accuracy = accuracy_score(Y_test, y_pred)
+        accuracies.append(accuracy)
+
+        print(f"===== FOLD {fold_idx} =====")
+        print(cf)
+        print(report)
+        print("Done!\n")
+
+    # Gộp kết quả classification reports
+    combined_report = pd.concat(
+        classification_reports, 
+        keys=[f'Fold_{i}' for i in range(len(classification_reports))]
+    )
+    
+    # Lưu lại vào file CSV nếu muốn
+    # (Ở đây thay đường dẫn theo ý bạn)
+    combined_report.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_9/classification_reports_{chosen_modality}.csv')
 
     print("====="*5)
-    print("Xs_kernel_train: ", Xs_kernel_train.shape)
-    print("Xs_kernel_train_test",Xs_kernel_train_test.shape)
-    print("Xs_kernel_test_test",Xs_kernel_test_test.shape)
-    print("====="*5)
+    average_accuracy = np.mean(accuracies)
+    accuracy_variance = np.std(accuracies)
+    print(f"Modality: {chosen_modality}")
+    print(f"Average Accuracy: {average_accuracy * 100:.2f}%")
+    print(f"Accuracy Std: {accuracy_variance * 100:.2f}%")
 
-    kernel_combiner = DKL.kernels.KernelCombination(method="DKL")
-    kernel_combiner.fit(Xs_kernel_train, Y_K_train,Xs_kernel_train_test, Xs_kernel_test_test)
-    combined_train_kernel = kernel_combiner.transform(Xs_kernel_train)
-    combined_test_kernel = kernel_combiner.transform(Xs_kernel_train_test)
-
-    print("====="*5)
-    print(combined_train_kernel.shape)
-    print(combined_test_kernel.shape)
-    print("====="*5)
-
-    plt.imshow(combined_train_kernel)
-    plt.show()
-
-
-
-    clf = DKL.kernels.KernelClassifier()
-    # feature_selector = FeatureSelector(clf, kernel_combiner)
-    clf.fit(combined_train_kernel, Y_K_train)
-    y_pred = clf.predict(combined_test_kernel)
-    cf = confusion_matrix(Y_test, y_pred)
-    report = pd.DataFrame(classification_report(Y_test, y_pred, output_dict=True))
-
-
-
-    # clf = DKL.kernels.KernelClassifier()
-    # # feature_selector = FeatureSelector(clf, kernel_combiner)
-    # clf.fit(Xs_kernel_train[1], Y_K_train)
-    # y_pred = clf.predict(Xs_kernel_train_test[1])
-    # cf = confusion_matrix(Y_test, y_pred)
-    # report = pd.DataFrame(classification_report(Y_test, y_pred, output_dict=True))
-
-    print(cf)
-    print(report)
-    print("Done!")
+    # Save average accuracy and accuracy std to a CSV file
+    metrics_df = pd.DataFrame({
+        'Modality': [chosen_modality],
+        'Average Accuracy': [average_accuracy * 100],
+        'Accuracy Std': [accuracy_variance * 100]
+    })
+    metrics_df.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_9/accuracy_metrics_{chosen_modality}.csv', index=False)

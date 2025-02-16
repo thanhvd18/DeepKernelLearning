@@ -4,6 +4,7 @@ import sys
 from .early_kernel import EarlyKernel
 from .middle_kernel import MiddleKernel
 from .late_kernel import LateKernel
+from .enhanced_middle_kernel import EnhancedMiddleKernel
 from sklearn.preprocessing import LabelEncoder
 
 class KernelConstructor:
@@ -15,6 +16,8 @@ class KernelConstructor:
             self.kernel_method = MiddleKernel(method=method)
         elif self.kernel_level == "late":
             self.kernel_method = LateKernel(method=method)
+        elif self.kernel_level == "enhancedMiddle":
+            self.kernel_method = EnhancedMiddleKernel()
         else:
             raise ValueError("Invalid kernel level")
 

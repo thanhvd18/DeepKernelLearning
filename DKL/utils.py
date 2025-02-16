@@ -78,6 +78,11 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
 
             X_K_train, _ = kernel_constructor.fit_transform(X_train, y_train)
             X_K_train_test, X_K_test_test  = kernel_constructor.transform(X_test)
+            # print("====="*5)
+            # print(X_K_train.shape)
+            # print(X_K_train_test.shape) 
+            # print(X_K_test_test.shape)
+            # print("====="*5)
 
             Xs_kernel_train[modality] = X_K_train
             Xs_kernel_train_test[modality] = X_K_train_test
