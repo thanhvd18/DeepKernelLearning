@@ -56,3 +56,4 @@ class DataLoader:
         if key not in self.data:
             raise KeyError(f"Data for key '{key}' has not been loaded.")
         return self.data[key]
+

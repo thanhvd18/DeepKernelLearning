@@ -212,7 +212,8 @@ class EnhancedMiddleKernel:
                  dropout_rate=0.2,
                  patience=10,
                  device=None,
-                 kernel_params=None):
+                 kernel_params=None,
+                 **kwargs):
         """
         Args:
             latent_dim (int): Size of the latent vector.
@@ -227,6 +228,7 @@ class EnhancedMiddleKernel:
             device (torch.device): Device for training.
             kernel_params (dict): Parameters for kernel functions (e.g., gamma for RBF).
         """
+        self.kernel_type = "rbf"
         self.latent_dim = latent_dim
         self.hidden_dims = hidden_dims
         self.activation = activation
@@ -238,7 +240,7 @@ class EnhancedMiddleKernel:
         self.patience = patience
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.kernel_params = kernel_params if kernel_params is not None else {}
-        
+        self.params = kwargs
         self.model = None
         self.input_dim = None
         self.X_fit = None
@@ -275,7 +277,12 @@ class EnhancedMiddleKernel:
         P_poly = torch.from_numpy(P_poly_np).float().to(self.device)
         
         # ---------------------- Learn Weights via EasyMKL on the Prior Kernels ---------------------- #
-        prior_kernels = [matrix(P_rbf_np), matrix(P_linear_np), matrix(P_poly_np)]
+        # prior_kernels = [matrix(P_rbf_np), matrix(P_linear_np), matrix(P_poly_np)]
+        prior_kernels = [
+            matrix(P_rbf_np.astype(np.float64)),
+            matrix(P_linear_np.astype(np.float64)),
+            matrix(P_poly_np.astype(np.float64))
+        ]
         self.easy_mkl = EasyMKL(lam=0.1, tracenorm=True)
         self.easy_mkl.train(prior_kernels, y)
         # The learned weights for the three prior kernels
@@ -359,21 +366,33 @@ class EnhancedMiddleKernel:
         return self
 
     def transform(self, X):
-        """
-        Given new input data X, compute the latent features and then use them to compute kernels.
-        (Here we simply demonstrate computing the latent representation.)
-        """
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X).float()
         self.model.eval()
         with torch.no_grad():
             X = X.to(self.device)
-            Z_latent = self.model.encode(X)
-        return Z_latent.cpu().numpy()
+            X_latent = self.model.encode(X)
+        if self.X_fit is None:
+            raise ValueError("The kernel model must be fitted before calling transform.")
+        return self.get_kernel(self.X_fit, X_latent.cpu().numpy()), self.get_kernel(X_latent.cpu().numpy(), X_latent.cpu().numpy())
     
     def fit_transform(self, X, y):
         self.fit(X, y)
         return self.transform(X)
+    
+    def get_kernel(self, X1, X2):
+        if self.kernel_type == "rbf":
+            gamma = self.params.get("gamma", None)
+            return rbf_kernel(X1, X2, gamma=gamma)
+        elif self.kernel_type == "linear":
+            return linear_kernel(X1, X2)
+        elif self.kernel_type == "poly":
+            degree = self.params.get("degree", 3)
+            coef0 = self.params.get("coef0", 1)
+            gamma = self.params.get("gamma", None)
+            return polynomial_kernel(X1, X2, degree=degree, gamma=gamma, coef0=coef0)
+        else:
+            raise ValueError(f"Unsupported kernel_type: {self.kernel_type}")
     
     def __str__(self):
         return (f"EnhancedMiddleKernel(latent_dim={self.latent_dim}, hidden_dims={self.hidden_dims}, "

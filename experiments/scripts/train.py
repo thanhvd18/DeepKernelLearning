@@ -57,8 +57,7 @@ if __name__ == '__main__':
     
     data_loader = DataLoader(data_config)
 
-    # Bạn vẫn giữ nguyên kernel_level, method,... như ban đầu
-    kernel_level = "enhancedMiddle" # kernel_levels = ["early", "middle", "late", "enhancedMiddle"]
+    kernel_level = "middle" # kernel_levels = ["early", "middle", "late", "enhancedMiddle"]
     kernel_constructor = KernelConstructor(kernel_level, method="linear")
 
     # Tạo CrossValidator
@@ -119,7 +118,7 @@ if __name__ == '__main__':
     
     # Lưu lại vào file CSV nếu muốn
     # (Ở đây thay đường dẫn theo ý bạn)
-    combined_report.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_9/classification_reports_{chosen_modality}.csv')
+    combined_report.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_10/classification_reports_{chosen_modality}.csv')
 
     print("====="*5)
     average_accuracy = np.mean(accuracies)
@@ -134,4 +133,4 @@ if __name__ == '__main__':
         'Average Accuracy': [average_accuracy * 100],
         'Accuracy Std': [accuracy_variance * 100]
     })
-    metrics_df.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_9/accuracy_metrics_{chosen_modality}.csv', index=False)
+    metrics_df.to_csv(f'/Users/macbook/Documents/WorkSpace/DeepKernelLearning/results/version_10/accuracy_metrics_{chosen_modality}.csv', index=False)

@@ -17,7 +17,7 @@ class KernelConstructor:
         elif self.kernel_level == "late":
             self.kernel_method = LateKernel(method=method)
         elif self.kernel_level == "enhancedMiddle":
-            self.kernel_method = EnhancedMiddleKernel()
+            self.kernel_method = EnhancedMiddleKernel(method=method)
         else:
             raise ValueError("Invalid kernel level")
 
