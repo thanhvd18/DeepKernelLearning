@@ -57,6 +57,7 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
     modalities = data_loader.get_modalities()
 
     splits = []
+    train_test_idxes = []
     for fold, (train_index, test_index) in enumerate(cv.get_splits(all_subjects,labels)):
         print(f"Processing fold {fold}")
         y = data_loader.get_data("label")
@@ -87,7 +88,7 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
             Xs_test[modality] = X_test
         splits.append([(Xs_kernel_train, Y_K_train, Xs_kernel_train_test, Xs_kernel_test_test,Y_K_test), (Xs_train, y_train, Xs_test, y_test)])
 
-    return splits
+    return splits, cv.get_splits(all_subjects,labels)
 
 
 

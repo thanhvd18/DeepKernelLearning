@@ -10,7 +10,7 @@ class KernelConstructor:
     def __init__(self, kernel_level, method):
         self.kernel_level = kernel_level
         if self.kernel_level == "early":
-            self.kernel_method = EarlyKernel(method=method)
+            self.kernel_method = EarlyKernel(kernel_type=method)
         elif self.kernel_level == "middle":
             self.kernel_method = MiddleKernel(method=method)
         elif self.kernel_level == "late":

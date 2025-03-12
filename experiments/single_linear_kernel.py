@@ -2,24 +2,28 @@ import os
 import sys
 
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+sys.path.append(os.path.join(os.getcwd(), '..', '..', 'DKL'))
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 
 
-sys.path.append(os.path.join(os.getcwd(), '..', '..', 'DKL'))
-from DKL.data import DataLoader, CrossValidator, DataLoaderAdvanced
-from DKL.kernels import KernelConstructor
 import DKL
+from DKL import config
+from DKL.kernels import KernelConstructor
+from DKL.model.model import DeepCNN
+from DKL.data import DataLoader, CrossValidator, DataLoaderAdvanced
+
 
 if __name__ == '__main__':
 
-    data_dir = os.path.join(os.getcwd(), "..", "..", "data/AD_CN")
+    data_dir = "../data/AD_CN"
     #desrcibe data structure of data saved in csv files
     data_config = {
         "MRI": os.path.join(data_dir, "MRI.csv"),
-        "PET": os.path.join(data_dir, "PET.csv"),
-        "CSF": os.path.join(data_dir, "CSF.csv"),
+        # "PET": os.path.join(data_dir, "PET.csv"),
+        # "CSF": os.path.join(data_dir, "CSF.csv"),
         # "SNP": os.path.join(data_dir, "SNP.csv"),
         "label": os.path.join(data_dir, "AD_CN_label.csv")
     }
@@ -27,7 +31,7 @@ if __name__ == '__main__':
 
     # representation_type = "kernel" #representation_types = ["feature", "kernel"]
     kernel_level = "early" # kernel_levels = ["early", "middle", "late"]
-    kernel_constructor = KernelConstructor(kernel_level, method="rbf")
+    kernel_constructor = KernelConstructor(kernel_level, method="linear")
     cv = CrossValidator(n_splits=5,n_repeats=1, stratified=False, random_state=1)
 
     splits, idxes = DKL.utils.train_test_kernel_cv_split(data_loader,cv,kernel_constructor)
@@ -55,22 +59,16 @@ if __name__ == '__main__':
 
     print(cf)
     print(report)
+    print("Done!")
 
     X = data_loader.data['MRI']
     y = data_loader.data['label']
     #
 
     X_train, X_test, y_train, y_test = X[idx[0]], X[idx[1]], y[idx[0]], y[idx[1]]
-    clf = SVC(kernel="linar")
+    clf = SVC(kernel="linear")
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
     cf = confusion_matrix(y_test, y_pred)
     report = pd.DataFrame(classification_report(y_test, y_pred, output_dict=True))
     print(cf)
-
-
-
-    print("Done!")
-
-
-

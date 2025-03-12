@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import rbf_kernel
 
 
 class EarlyKernel:
-    def __init__(self, kernel_type="rbf", **kwargs):
+    def __init__(self, kernel_type="linear", **kwargs):
         """
         Initialize the EarlyKernel class.
 
