@@ -202,15 +202,16 @@ class EnhancedMiddleKernel:
     via EasyMKL. The overall loss is a combination of the reconstruction loss and the weighted code loss.
     """
     def __init__(self,
-                 latent_dim=2000,
-                 hidden_dims=[500, 500, 2000],
+                 kernel_type = "rbf",
+                 latent_dim=30,
+                 hidden_dims=[1000, 50],
                  activation=nn.ReLU(),
-                 epochs=100,
-                 batch_size=32,
-                 lr=1e-3,
+                 epochs=1000,
+                 batch_size=64,
+                 lr=1e-4,
                  lambda_=0.75,
-                 dropout_rate=0.2,
-                 patience=10,
+                 dropout_rate=0.1,
+                 patience=200,
                  device=None,
                  kernel_params=None,
                  **kwargs):
@@ -228,7 +229,7 @@ class EnhancedMiddleKernel:
             device (torch.device): Device for training.
             kernel_params (dict): Parameters for kernel functions (e.g., gamma for RBF).
         """
-        self.kernel_type = "rbf"
+        self.kernel_type = kernel_type
         self.latent_dim = latent_dim
         self.hidden_dims = hidden_dims
         self.activation = activation
@@ -256,38 +257,14 @@ class EnhancedMiddleKernel:
         """
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X).float()
-        
+
         self.input_dim = X.shape[1]
         
         # ---------------------- Compute Prior Kernel Matrices on Raw Data ---------------------- #
         gamma = self.kernel_params.get("gamma", 1.0)
         degree = self.kernel_params.get("degree", 3)
         coef0 = self.kernel_params.get("coef0", 1)
-        
-        # RBF prior kernel
-        P_rbf_np = rbf_kernel(X, X, gamma=gamma)
-        # Linear prior kernel
-        P_linear_np = linear_kernel(X, X)
-        # Polynomial prior kernel
-        P_poly_np = polynomial_kernel(X, X, degree=degree, gamma=gamma, coef0=coef0)
-        
-        # Convert to torch tensors (for code loss computation)
-        P_rbf = torch.from_numpy(P_rbf_np).float().to(self.device)
-        P_linear = torch.from_numpy(P_linear_np).float().to(self.device)
-        P_poly = torch.from_numpy(P_poly_np).float().to(self.device)
-        
-        # ---------------------- Learn Weights via EasyMKL on the Prior Kernels ---------------------- #
-        # prior_kernels = [matrix(P_rbf_np), matrix(P_linear_np), matrix(P_poly_np)]
-        prior_kernels = [
-            matrix(P_rbf_np.astype(np.float64)),
-            matrix(P_linear_np.astype(np.float64)),
-            matrix(P_poly_np.astype(np.float64))
-        ]
-        self.easy_mkl = EasyMKL(lam=0.1, tracenorm=True)
-        self.easy_mkl.train(prior_kernels, y)
-        # The learned weights for the three prior kernels
-        weights = self.easy_mkl.weights
-        
+          
         # ---------------------- Prepare DataLoader for Autoencoder Training ---------------------- #
         dataset = TensorDataset(X, X)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
@@ -314,22 +291,58 @@ class EnhancedMiddleKernel:
             epoch_loss = 0.0
             for batch_X, _ in dataloader:
                 batch_X = batch_X.to(self.device)
+
+                batch_indices = torch.arange(len(batch_X))
+                batch_y = torch.tensor(y[batch_indices], dtype=torch.float32).to(self.device)
+                # print(f"batch_y: {batch_y}")
                 optimizer.zero_grad()
                 X_recon = self.model(batch_X)
                 recon_loss = criterion(X_recon, batch_X)
+                Z = self.model.encode(batch_X)
+
+                # RBF prior kernel
+                P_rbf_np = rbf_kernel(batch_X, batch_X, gamma=gamma)
+                # Linear prior kernel
+                P_linear_np = linear_kernel(batch_X, batch_X)
+                # Polynomial prior kernel
+                P_poly_np = polynomial_kernel(batch_X, batch_X, degree=degree, gamma=gamma, coef0=coef0)
                 
-                # Compute code loss on the entire training set (using the current autoencoder)
-                self.model.eval()
-                with torch.no_grad():
-                    X_full = X.to(self.device)
-                Z_full = self.model.encode(X_full)
-                self.model.train()
+                # Convert to torch tensors (for code loss computation)
+                P_rbf = torch.from_numpy(P_rbf_np).float().to(self.device)
+                P_linear = torch.from_numpy(P_linear_np).float().to(self.device)
+                P_poly = torch.from_numpy(P_poly_np).float().to(self.device)
                 
-                # Compute code losses for each prior kernel
-                c_loss_rbf = code_loss(Z_full, P_rbf)
-                c_loss_linear = code_loss(Z_full, P_linear)
-                c_loss_poly = code_loss(Z_full, P_poly)
-                # Combine the code losses using EasyMKL weights
+                # #rbf, linear, poly for Z latent features
+                # C_rbf_z = rbf_kernel(Z, Z, gamma=gamma)
+                # C_linear_z = linear_kernel(Z, Z)
+                # C_poly_z = polynomial_kernel(Z, Z, degree=degree, gamma=gamma, coef0=coef0)
+                
+
+
+
+                # # Compute code losses for each prior kernel
+                c_loss_rbf = code_loss(Z, P_rbf)
+                c_loss_linear = code_loss(Z, P_linear)
+                c_loss_poly = code_loss(Z, P_poly)
+               # Combine the code losses using EasyMKL weights
+                        # ---------------------- Learn Weights via EasyMKL on the Prior Kernels ---------------------- #
+                # prior_kernels = [matrix(P_rbf_np), matrix(P_linear_np), matrix(P_poly_np)]
+                prior_kernels = [
+                    matrix(P_rbf_np.astype(np.float64)),
+                    matrix(P_linear_np.astype(np.float64)),
+                    matrix(P_poly_np.astype(np.float64))
+                ]
+                self.easy_mkl = EasyMKL(lam=0.1, tracenorm=True)
+
+                batch_y = 2 * batch_y - 1  # Convert labels to -1 and +1
+                unique_labels = torch.unique(batch_y)
+                if len(unique_labels) != 2:
+                    raise ValueError(f"The different labels are not 2. Found distinct labels:{unique_labels}")
+                # convert to numpy array
+                batch_y = batch_y.cpu().numpy()
+                self.easy_mkl.train(prior_kernels, batch_y)
+                # The learned weights for the three prior kernels
+                weights = self.easy_mkl.weights
                 combined_code_loss = weights[0] * c_loss_rbf + weights[1] * c_loss_linear + weights[2] * c_loss_poly
                 
                 total_loss = (1 - self.lambda_) * recon_loss + self.lambda_ * combined_code_loss
