@@ -66,7 +66,7 @@ class Autoencoder(nn.Module):
     def decode(self, z):
         return self.decoder(z)
 
-def code_loss(Z, P):
+def code_loss(Z, P):#Z
     """
     Tính code loss theo chuẩn Frobenius.
     Z: (batch_size, latent_dim) hoặc (n_samples, latent_dim)
@@ -87,15 +87,15 @@ class MiddleKernel:
     def __init__(
         self,
         kernel_type="rbf",
-        latent_dim=100,
-        hidden_dims=[256,],
+        latent_dim=30,
+        hidden_dims=[1000,60],
         activation=nn.ReLU(),
-        epochs=100,
-        batch_size=32,
-        lr=1e-5,
+        epochs=1000,
+        batch_size=64,
+        lr=1e-4,
         lambda_=0.75,
         dropout_rate=0.1,
-        patience=10,  # Số epoch không cải thiện trước khi dừng sớm
+        patience=200,  # Số epoch không cải thiện trước khi dừng sớm
         device=None,
         **kwargs
     ):
@@ -120,12 +120,16 @@ class MiddleKernel:
         if isinstance(X, np.ndarray):
             X = torch.from_numpy(X).float()
         
-        # Tính prior kernel matrix P sử dụng rbf
-        P_np = rbf_kernel(X, X, gamma=self.params.get("gamma", 1.0))
-        P = torch.from_numpy(P_np).float().to(self.device)
+        # # Tính prior kernel matrix P sử dụng rbf
+        # P_np = rbf_kernel(X, X, gamma=self.params.get("gamma", 1.0))
+        # # P_np = linear_kernel(X, X)
+        # P = torch.from_numpy(P_np).float().to(self.device)
         self.input_dim = X.shape[1]
 
         dataset = TensorDataset(X, X)
+        # Number of sample in dataset
+        n_samples = len(dataset)
+        print(f"Number of samples: {n_samples}")
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         self.model = Autoencoder(
@@ -149,13 +153,21 @@ class MiddleKernel:
             epoch_loss = 0.0
             for batch_X, _ in dataloader:
                 batch_X = batch_X.to(self.device)
+
+
+
                 optimizer.zero_grad()
                 X_recon = self.model(batch_X)
                 recon_loss = criterion(X_recon, batch_X)
                 
-                # Tính code loss trên toàn bộ dữ liệu (có thể tính theo batch nếu dữ liệu lớn)
-                Z = self.model.encode(X.to(self.device))
+                # # Tính code loss trên toàn bộ dữ liệu (có thể tính theo batch nếu dữ liệu lớn)
+                Z = self.model.encode(batch_X)
+                P = rbf_kernel(batch_X.cpu().numpy(), batch_X.cpu().numpy(), gamma=self.params.get("gamma", 1.0))
+                P = torch.from_numpy(P).float().to(self.device)
                 c_loss = code_loss(Z, P)
+
+                # Z = self.model.encode(X.to(self.device))
+                # c_loss = code_loss(Z, P)
 
                 total_loss = (1 - self.lambda_) * recon_loss + self.lambda_ * c_loss
                 total_loss.backward()
@@ -205,7 +217,7 @@ class MiddleKernel:
 
     def get_kernel(self, X1, X2):
         if self.kernel_type == "rbf":
-            gamma = self.params.get("gamma", None)
+            gamma = self.params.get("gamma", 1)
             return rbf_kernel(X1, X2, gamma=gamma)
         elif self.kernel_type == "linear":
             return linear_kernel(X1, X2)

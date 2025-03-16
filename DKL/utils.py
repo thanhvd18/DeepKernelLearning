@@ -57,6 +57,7 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
     modalities = data_loader.get_modalities()
 
     splits = []
+    train_test_idxes = []
     for fold, (train_index, test_index) in enumerate(cv.get_splits(all_subjects,labels)):
         print(f"Processing fold {fold}")
         y = data_loader.get_data("label")
@@ -78,11 +79,6 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
 
             X_K_train, _ = kernel_constructor.fit_transform(X_train, y_train)
             X_K_train_test, X_K_test_test  = kernel_constructor.transform(X_test)
-            # print("====="*5)
-            # print(X_K_train.shape)
-            # print(X_K_train_test.shape) 
-            # print(X_K_test_test.shape)
-            # print("====="*5)
 
             Xs_kernel_train[modality] = X_K_train
             Xs_kernel_train_test[modality] = X_K_train_test
@@ -92,7 +88,7 @@ def train_test_kernel_cv_split(data_loader,cv,kernel_constructor):
             Xs_test[modality] = X_test
         splits.append([(Xs_kernel_train, Y_K_train, Xs_kernel_train_test, Xs_kernel_test_test,Y_K_test), (Xs_train, y_train, Xs_test, y_test)])
 
-    return splits
+    return splits, cv.get_splits(all_subjects,labels)
 
 
 

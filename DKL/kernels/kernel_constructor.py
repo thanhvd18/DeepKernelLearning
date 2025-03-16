@@ -8,18 +8,19 @@ from .enhanced_middle_kernel import EnhancedMiddleKernel
 from sklearn.preprocessing import LabelEncoder
 
 class KernelConstructor:
-    def __init__(self, kernel_level, method):
+    def __init__(self, kernel_level, method, kernel_method): #
         self.kernel_level = kernel_level
-        if self.kernel_level == "early":
-            self.kernel_method = EarlyKernel(method=method)
-        elif self.kernel_level == "middle":
-            self.kernel_method = MiddleKernel(method=method)
-        elif self.kernel_level == "late":
-            self.kernel_method = LateKernel(method=method)
-        elif self.kernel_level == "enhancedMiddle":
-            self.kernel_method = EnhancedMiddleKernel(method=method)
-        else:
-            raise ValueError("Invalid kernel level")
+        # if self.kernel_level == "early":
+        #     self.kernel_method = EarlyKernel(kernel_type=method)
+        # elif self.kernel_level == "middle":
+        #     self.kernel_method = MiddleKernel(kernel_type=method)
+        # elif self.kernel_level == "late":
+        #     self.kernel_method = LateKernel(method=method)
+        # elif self.kernel_level == "enhancedMiddle":
+        #     self.kernel_method = EnhancedMiddleKernel(method=method)
+        # else:
+        #     raise ValueError("Invalid kernel level")
+        self.kernel_method = kernel_method
 
         self.model = None
     def fit(self, X_train, y_train):
