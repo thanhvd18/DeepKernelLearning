@@ -107,7 +107,7 @@ class MiddleKernel:
         lr=1e-4,
         lambda_=0.75,
         dropout_rate=0.1,
-        patience=200,  # Số epoch không cải thiện trước khi dừng sớm
+        patience=100,  # Số epoch không cải thiện trước khi dừng sớm
         device=None,
         **kwargs
     ):
@@ -145,11 +145,16 @@ class MiddleKernel:
         n_samples = len(dataset)
         print(f"Total samples: {n_samples}")
 
-
+        #split data
+        train_size = int(0.8 * n_samples) 
+        val_size = n_samples - train_size
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+        print(f"Train samples: {len(train_dataset)}, Val samples: {len(val_dataset)}")
         
+        train_dataloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        val_dataloader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
-
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True) # for X
+        # dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True) # for X
 
         self.model = Autoencoder(
             input_dim=self.input_dim,
@@ -170,7 +175,7 @@ class MiddleKernel:
         self.model.train()
         for epoch in range(self.epochs):
             epoch_loss = 0.0
-            for batch_X, _ in dataloader:
+            for batch_X, _ in train_dataloader:
                 batch_X = batch_X.to(self.device)
 
 
@@ -207,13 +212,33 @@ class MiddleKernel:
                 optimizer.step()
                 epoch_loss += total_loss.item() * batch_X.size(0)
             
-            epoch_loss /= len(dataloader.dataset)
-            scheduler.step(epoch_loss)
-            print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {epoch_loss:.4f}")
+            epoch_loss /= len(train_dataloader.dataset)
+            # scheduler.step(epoch_loss)
+            # print(f"Epoch [{epoch+1}/{self.epochs}], Loss: {epoch_loss:.4f}")
+
+            # Phase 2: Validation
+            self.model.eval()
+            val_loss = 0.0
+            with torch.no_grad():
+                for batch_X, _ in val_dataloader:
+                    batch_X = batch_X.to(self.device)
+                    X_recon = self.model(batch_X)
+                    recon_loss = criterion(X_recon, batch_X)
+
+                    Z = self.model.encode(batch_X)
+                    P = rbf_torch(batch_X, gamma=self.params.get("gamma", 1.0))
+                    C = linear_torch(Z)
+                    c_loss = code_loss(C, P)
+
+                    total_loss = (1 - self.lambda_) * recon_loss + self.lambda_ * c_loss
+                    val_loss += total_loss.item() * batch_X.size(0)
+            val_loss /= len(val_dataloader.dataset)
+            scheduler.step(val_loss)
+            print(f"Epoch [{epoch+1}/{self.epochs}],Train Loss: {epoch_loss:.4f}, Val Loss: {val_loss:.4f}")
 
             # Early Stopping
-            if epoch_loss < best_loss:
-                best_loss = epoch_loss
+            if val_loss < best_loss:
+                best_loss = val_loss
                 best_model_state = self.model.state_dict()
                 trigger = 0
             else:
