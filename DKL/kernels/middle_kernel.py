@@ -66,7 +66,7 @@ class Autoencoder(nn.Module):
     def decode(self, z):
         return self.decoder(z)
 
-def code_loss(Z, P):#Z
+def code_loss(C, P):#Z
     """
     Tính code loss theo chuẩn Frobenius.
     Z: (batch_size, latent_dim) hoặc (n_samples, latent_dim)
@@ -75,10 +75,22 @@ def code_loss(Z, P):#Z
       Một scalar tensor tương ứng với ||C/||C||F - P/||P||F||_F
       với C = Z * Z^T.
     """
-    C = torch.matmul(Z, Z.t())
+    # C = torch.matmul(Z, Z.t())
     C_norm = C / fro_norm(C).clamp_min(1e-12)
     P_norm = P / fro_norm(P).clamp_min(1e-12)
     return fro_norm(C_norm - P_norm)
+
+def rbf_torch(X, gamma=1.0):
+    sq_dists = torch.cdist(X, X, p=2)**2
+    return torch.exp(-gamma * sq_dists)
+
+def linear_torch(X):
+    return torch.matmul(X, X.t())
+
+def polynomial_torch(X, degree=3, gamma=None, coef0=1):
+    if gamma is None:
+        gamma = 1.0 / X.shape[1]
+    return (gamma * torch.matmul(X, X.t()) + coef0)**degree
 
 class MiddleKernel:
     """
@@ -124,13 +136,20 @@ class MiddleKernel:
         # P_np = rbf_kernel(X, X, gamma=self.params.get("gamma", 1.0))
         # # P_np = linear_kernel(X, X)
         # P = torch.from_numpy(P_np).float().to(self.device)
+        # P = rbf_torch(X, gamma=1.0)
+
         self.input_dim = X.shape[1]
 
         dataset = TensorDataset(X, X)
         # Number of sample in dataset
         n_samples = len(dataset)
-        print(f"Number of samples: {n_samples}")
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        print(f"Total samples: {n_samples}")
+
+
+        
+
+
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True) # for X
 
         self.model = Autoencoder(
             input_dim=self.input_dim,
@@ -162,12 +181,26 @@ class MiddleKernel:
                 
                 # # Tính code loss trên toàn bộ dữ liệu (có thể tính theo batch nếu dữ liệu lớn)
                 Z = self.model.encode(batch_X)
-                P = rbf_kernel(batch_X.cpu().numpy(), batch_X.cpu().numpy(), gamma=self.params.get("gamma", 1.0))
-                P = torch.from_numpy(P).float().to(self.device)
-                c_loss = code_loss(Z, P)
+
+                # P = rbf_kernel(batch_X.detach().cpu().numpy(), batch_X.detach().cpu().numpy(), gamma=self.params.get("gamma", 1.0))
+                # P = torch.from_numpy(P).float().to(self.device)
+                P = rbf_torch(batch_X, gamma=self.params.get("gamma", 1.0))
+                # P = linear_torch(batch_X)
+                # P = polynomial_torch(batch_X, degree=3, gamma=1.0, coef0=1)
+    
+                C = linear_torch(Z)
+                # C = rbf_torch(Z, gamma=1.0)
+                # C = polynomial_torch(Z, degree=3, gamma=1.0, coef0=1)
+                # C = torch.matmul(Z, Z.t())
+
+                # C.requires_grad_(True)
+                #check requires_grad of C and P
+                # print("requires grad of C =========",C.requires_grad)
+                # print("requires grad of P =========",P.requires_grad)
+                c_loss = code_loss(C, P)
+
 
                 # Z = self.model.encode(X.to(self.device))
-                # c_loss = code_loss(Z, P)
 
                 total_loss = (1 - self.lambda_) * recon_loss + self.lambda_ * c_loss
                 total_loss.backward()
